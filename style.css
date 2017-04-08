@@ -1,0 +1,76 @@
+body
+{
+	font-size: 0.9em;
+	font-family: verdana, arial, sans-serif;
+	background-color: grey;
+}
+button
+{
+	width: 90px;
+	margin-top: 8px;
+}
+canvas
+{
+background-color: white;
+padding-bottom:10px;
+display:block;
+}
+#my_sudoku
+{
+margin-left:auto;
+margin-right:auto;
+width: 945px;
+height:900px;
+background-color: white;
+padding:10px;
+}
+#title
+{
+position: relative;
+left: 0px;
+top:0px;
+padding: 10px;
+}
+
+#container
+{
+top:60px;
+padding: 10px;
+float:left;
+}
+#big
+{
+font-size: 32px;
+color:black;
+}
+#small
+{
+display:block;
+font-size: 10px;
+}
+
+h2
+{
+color: #444444;
+text-align:center;
+}
+
+
+#my_tb{
+	width: 538px; 
+	background-color: #faf0e6; 
+	margin-top: 10px;
+}
+
+#extraInfo{
+	font-size:0.7em; 
+	color: #696969;
+}
+td{
+	width: 135px;
+}
+
+#message{
+	width: 130; 
+	color: Red; 
+}

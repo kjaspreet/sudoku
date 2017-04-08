@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<link rel="stylesheet" type="text/css" href="style.css">
+<head>
+	<title>Sudoku Game</title>
+	<script type="text/javascript" >
+
+	function m_coordinate(event) {
+			var x_value = 0;
+			var y_value = 0;
+			var canvasX = 0;
+			var canvasY = 0;
+			var curr_ele = this;
+
+			do {
+				x_value += curr_ele.offsetLeft;
+				y_value += curr_ele.offsetTop;
+			}
+			while (curr_ele = curr_ele.offsetParent)
+
+				canvasX = event.pageX - x_value;
+			canvasY = event.pageY - y_value;
+
+			return { x: canvasX, y: canvasY }
+		}
+		HTMLCanvasElement.prototype.m_coordinate = m_coordinate;
+
+
+		Array.prototype.contains = function (element) {
+			for (var i = 0; i < this.length; i++) {
+				if (this[i] == element) {
+					return true;
+				}
+			}
+			return false;
+		}
+
+		var my_square = 3;
+		var my_board = my_square * my_square;
+
+		function AllowedValues(n) {
+			this._mask = n;
+		}
+
+		AllowedValues.prototype.getSingle = function () {
+
+			var single = 0;
+			var count = 0;
+			for (var i = 1; i <= my_board; i++)
+				if ((this._mask & (1 << i)) != 0) {
+					count++;
+					single = i;
+				}
+				return count == 1 ? single : 0;
+			};
+
+
+			AllowedValues.prototype.setSingle = function (n) {
+				this._mask = 1 << n;
+			};
+
+			AllowedValues.prototype.count = function () {
+
+				var count = 0;
+				for (var i = 1; i <= my_board; i++)
+					if ((this._mask & (1 << i)) != 0)
+						count++;
+					return count;
+				};
+
+				AllowedValues.prototype.isAllowed = function (n) {
+					return n >= 1 && n <= my_board && ((this._mask & (1 << n)) != 0);
+				};
+
+				AllowedValues.prototype.removeValues = function (bm) {
+					this._mask &= ~bm._mask;
+				};
+
+				AllowedValues.prototype.allowedValuesArray = function () {
+					var ret = new Array();
+					for (var i = 1; i <= my_board; i++)
+						if (((1 << i) & this._mask) != 0)
+							ret.push(i);
+						return ret;
+					};
+
+					AllowedValues.prototype.clone = function () {
+						return new AllowedValues(this._mask);
+					};
+
+					function Cell(value) {
+						this._value = value; 
+						this._allowed = new AllowedValues(0x3e); 
+						this._answer = 0; 
+						this._given = false;
+					}
+
+					Cell.prototype.clone = function (value) {
+						var clone = new Cell();
+						clone._value = this._value;
+						clone._allowed = this._allowed.clone();
+						clone._answer = this._answer;
+						clone._given = this._given;
+						return clone;
+					};
+
+					Cell.prototype.single = function (value) {
+						this._value = value; 
+						this._allowed = new AllowedValues(0x3e); 
+						this._answer = 0; 
+					};
+
+					Cell.prototype.valueMask = function () {
+						return this._value == 0 ? 0 : 1 << this._value;
+					};
+
+					Cell.prototype.hasAnswer = function () {
+						return this._answer != 0;
+					};
+
+					Cell.prototype.getAnswer = function () {
+						return this._answer;
+					};
+
+					Cell.prototype.setAnswer = function (n) {
+						if (n < 0 || n > 9)
+							throw "Illegal value not in the range 1..9.";
+						this._answer = n;
+					};
+
+					Cell.prototype.getValue = function () {
+						return this._value;
+					};
+
+					Cell.prototype.setValue = function (n) {
+						if (n < 0 || n > 9)
+							throw "Illegal value not in the range 1..9.";
+						if (n != 0 && !this._allowed.isAllowed(n))
+							throw "Not allowed.";
+						this._value = n;
+						this._given = false;
+					};
+
+					Cell.prototype.setGiven = function (n) {
+						if (n < 0 || n > 9)
+							throw "Illegal value not in the range 1..9.";
+						this._value = n;
+						this._given = n != 0;
+						this._answer = 0;
+					};
+
+					Cell.prototype.isGiven = function () {
+						return this._given;
+					};
+
+					Cell.prototype.isAssigned = function () {
+						return this._value != 0;
+					};
+
+					Cell.prototype.clear = function () {
+						this._value = 0; 
+						this._allowed = new AllowedValues(0x3E); 
+						this._answer = 0;
+						this._given = 0;
+					};
+
+					Cell.prototype.isAllowed = function (value) {
+						return this._allowed.isAllowed(value);
+					};
+
+					Cell.prototype.setAllowed = function (value) {
+						this._allowed = new AllowedValues(value);
+					};
+
+					Cell.prototype.getAllowedClone = function (value) {
+						return this._allowed.clone();
+					};
+
+					var SibType = { "Row": 1, "Col": 2, "Square": 3 };
+
+					function Location(row, col) {
+						this.row = row;
+						this.col = col;
+					}
+
+					Location.empty = new Location(-1, -1);
+
+					Location.prototype.isEmpty = function () {
+						return this.row < 0;
+					};
+
+					Location.prototype.modulo = function (n) {
+						if (n < 0)
+							return n + my_board;
+						return n % my_board;
+					};
+
+					Location.prototype.left = function () {
+						return new Location(this.row, this.modulo(this.col - 1));
+					};
+
+					Location.prototype.right = function () {
+						return new Location(this.row, this.modulo(this.col + 1));
+					};
+
+					Location.prototype.up = function () {
+						return new Location(this.modulo(this.row - 1), this.col);
+					};
+
+					Location.prototype.down = function () {
+						return new Location(this.modulo(this.row + 1), this.col);
+					};
+
+					Location.prototype.toString = function () {
+						return "Row=" + String(this.row) + "Col=" + String(this.col);
+					};
+
+					Location.prototype.getSquare = function () {
+						return 3 * Math.floor(this.row / 3) + Math.floor(this.col / 3);
+					};
+
+					Location.prototype.equals = function (a) {
+						return a.row == this.row && a.col == this.col;
+					};
+
+					Location.prototype.notEquals = function (a) {
+						return a.row != this.row || a.col != this.col;
+					};
+
+	
+	Location.grid = function () {
+		var locs = new Array();
+		for (var i = 0; i < my_board; i++)
+			for (var j = 0; j < my_board; j++)
+				locs.push(new Location(i, j));
+			return locs;
+		};
+
+
+		Location.prototype.rowSibs = function () {
+			var locs = new Array();
+			for (var i = 0; i < my_board; i++)
+				if (i != this.col)
+					locs.push(new Location(this.row, i));
+				return locs;
+			};
+
+
+			Location.prototype.colSibs = function () {
+				var locs = new Array();
+				for (var i = 0; i < my_board; i++)
+					if (i != this.row)
+						locs.push(new Location(i, this.col));
+					return locs;
+				};
+
+
+				Location.prototype.squareSibs = function () {
+					var locs = new Array();
+					var baseRow = 3 * Math.floor(this.row / 3); 
+					var baseCol = 3 * Math.floor(this.col / 3);
+					for (var i = 0; i < my_square; i++) {
+						var r = baseRow + i;
+						for (var j = 0; j < my_square; j++) {
+							var c = baseCol + j;
+							if (r != this.row || c != this.col)
+								locs.push(new Location(r, c));
+						}
+					}
+					return locs;
+				};
+
+				Location.prototype.getSibs = function (type) {
+					switch (type) {
+						case SibType.Row:
+						return this.rowSibs();
+						case SibType.Col:
+						return this.colSibs();
+						case SibType.Square:
+						return this.squareSibs();
+					}
+				};
+
+				function Board() {
+
+					function MultiDimArray(rows, cols) {
+						var a = new Array(rows);
+						for (var i = 0; i < rows; i++) {
+							a[i] = new Array(cols);
+							for (var j = 0; j < cols; j++)
+								a[i][j] = new Cell();
+						}
+						return a;
+					}
+
+					this._digits = MultiDimArray(my_board, my_board);
+					this._isSolved = false;
+					this._isValid = false;
+
+				}
+
+				Board.prototype.clone = function () {
+					var clone = new Board();
+					clone._isSolved = this._isSolved;
+					clone._isValid = this._isValid;
+					clone._digits = new Array(my_board);
+					for (var i = 0; i < my_board; i++) {
+						clone._digits[i] = new Array(my_board);
+						for (var j = 0; j < my_board; j++)
+							clone._digits[i][j] = this._digits[i][j].clone();
+					}
+					return clone;
+				};
+
+				Board.prototype.copyTo = function (target) {
+					target._isSolved = this._isSolved;
+					target._isValid = this._isValid;
+					for (var i = 0; i < my_board; i++)
+						for (var j = 0; j < my_board; j++)
+							target._digits[i][j] = this._digits[i][j].clone();
+					};
+
+					Board.prototype.getCell = function (loc) {
+						return this._digits[loc.row][loc.col];
+					};
+
+					Board.prototype.setCell = function (loc, value) {
+						this._digits[loc.row][loc.col] = value;
+					};
+
+					Board.prototype.clear = function () {
+						for (var i = 0; i < my_board; i++)
+							for (var j = 0; j < my_board; j++)
+								this._digits[i][j].clear();
+							this.updateAllowed();
+						};
+
+						Board.prototype.reset = function () {
+							for (var i = 0; i < my_board; i++)
+								for (var j = 0; j < my_board; j++) {
+									var cell = this._digits[i][j];
+									if (!cell.isGiven())
+										cell.clear();
+								}
+								this.updateAllowed();
+							};
+
+							Board.prototype.checkIsValidSibs = function (loc, digit, locs) {
+								for (var i = 0; i < locs.length; i++) {
+									var loc = locs[i];
+									var cell = this._digits[loc.row][loc.col];
+									if (cell.getAnswer() == digit)
+										return false;
+								}
+								return true;
+							};
+
+							Board.prototype.checkIsValid = function (loc, digit) {
+
+								if (!this.checkIsValidSibs(loc, digit, loc.colSibs()))
+									return false;
+								if (!this.checkIsValidSibs(loc, digit, loc.rowSibs()))
+									return false;
+								if (!this.checkIsValidSibs(loc, digit, loc.squareSibs()))
+									return false;
+
+								return true;
+							};
+
+
+
+							Board.prototype.checkForHiddenSingles = function (loc, st) {
+
+								var cell = this.getCell(loc);
+								if (!cell.isAssigned() && !cell.hasAnswer()) {
+									var allowed = cell.getAllowedClone(); 
+									var locs = loc.getSibs(st);
+									for (var i = 0; i < locs.length; i++) {
+										var sib = locs[i];
+										var sibCell = this.getCell(sib);
+										if (!sibCell.isAssigned())
+											allowed.removeValues(sibCell.getAllowedClone()); 
+									}
+									var answer = allowed.getSingle(); 
+									if (answer != 0) {
+										cell.setAnswer(answer);
+										return true; 
+									}
+								}
+								return false;
+							};
+
+							Board.prototype.findCellWithFewestChoices = function () {
+								var minLocation = Location.empty;
+								var minCount = 9;
+								var locs = Location.grid();
+								for (var i = 0; i < locs.length; i++) {
+									var loc = locs[i];
+									var cell = this.getCell(loc);
+									if (!cell.isAssigned()) {
+										var count = cell.getAllowedClone().count();
+										if (count < minCount) {
+											minLocation = loc;
+											minCount = count;
+										}
+									}
+								}
+								return minLocation;
+							};
+
+							Board.prototype.updateAllowed = function () {
+
+								var cols = new Array(my_board);
+								var rows = new Array(my_board);
+								var squares = new Array(my_board);
+
+
+								var locs = Location.grid();
+								for (var i = 0; i < locs.length; i++) {
+									var loc = locs[i];
+
+									var contains = this.getCell(loc).valueMask();
+									rows[loc.row] |= contains;
+									cols[loc.col] |= contains;
+									squares[loc.getSquare()] |= contains;
+								}
+
+
+								this._isValid = true;
+								this._isSolved = true;
+								for (var i = 0; i < locs.length; i++) {
+									var loc = locs[i];
+
+									var contains = rows[loc.row] | cols[loc.col] | squares[loc.getSquare()];
+									var cell = this.getCell(loc);
+									cell.setAllowed(~contains); 
+									cell.setAnswer(0); 
+
+									if (!cell.isAssigned()) {
+										this._isSolved = false;
+										var mask = new AllowedValues(~contains);
+										var count = mask.count();
+										if (count == 0)
+											this._isValid = false;
+										else if (count == 1)
+											cell.setAnswer(mask.getSingle());
+									}
+								}
+
+
+								for (var i = 0; i < locs.length; i++) {
+									var loc = locs[i];
+									if (!this.checkForHiddenSingles(loc, SibType.Row))
+										if (!this.checkForHiddenSingles(loc, SibType.Col))
+											this.checkForHiddenSingles(loc, SibType.Square); 
+									}
+
+
+								};
+
+								Board.prototype.trySolve = function (loc, value) {
+									if (!loc.isEmpty())
+									{
+										var cell = this.getCell(loc);
+										if (!cell.isAllowed(value))
+											throw "Internal error.";
+										cell.setValue(value);
+									}
+
+
+									if (this._isSolved)
+										return true;
+
+									if (!this._isValid)
+										return false;
+
+
+									var locChoice = this.findCellWithFewestChoices();
+									if (locChoice.isEmpty())
+										return false;
+
+									var cell = this.getCell(locChoice);
+									var allowedValues = cell._allowed.allowedValuesArray();
+									for (var i = 0; i < allowedValues.length; i++) {
+										var val = allowedValues[i];
+										var board = this.clone();
+										if (board.trySolve(locChoice, val)) {
+											board.copyTo(this);
+											return true;
+										}
+									}
+
+									return false;
+								};
+
+								Board.prototype.toString = function () {
+									var text = "";
+									for (var row = 0; row < my_board; row++)
+										for (var col = 0; col < my_board; col++) {
+											var val = this._digits[row][col].getValue();
+											text += val == 0 ? "." : String(val);
+										}
+										return text;
+									};
+
+									Board.prototype.setString = function (value) {
+
+										if (value.length != (my_board * my_board))
+											return false; 
+										var n = 0;
+										for (var row = 0; row < my_board; row++)
+											for (var col = 0; col < my_board; col++) {
+												var ch = parseInt(value.charAt(n++)); 
+												var cell = this._digits[row][col];
+												cell.setGiven(!isNaN(ch) ? ch : 0);
+											}
+											this.updateAllowed();
+											return true;
+										};
+
+									</script>
+
+
+								</head>
+								<body>
+									<div id='my_sudoku'>
+										<div id='title'>
+											<span id='big'>Soduko Game</span>
+
+										</div>
+
+										<div id='container'>
+											<table>
+												<tr>
+													<td>
+														<canvas id='my_can_2' width='541' height='55' title="Click here to set the currently selected digit">Canvas is not supported by this browser.</canvas>
+														<canvas id='my_can_1' width='541' height='541'>Canvas is not supported by this browser.</canvas>
+														<input id='my_tb' style='width: 538px; background-color: #faf0e6; margin-top: 10px;'/>
+														<br/><br/>
+														<span id="extraInfo" style='font-size:0.7em; color: #696969;'></span><br/>
+													</td>
+													<td style="width: 135px">
+
+														
+														<button id="btnReset" onclick="reset()" >Reset</button><br/>
+
+														<button id="btnUndo" onclick="undo()" >Undo</button><br/>
+														
+
+														<span id="message" style="width: 130; color: Red; "></span><br/>	
+
+													</td>
+												</tr>
+											</table>
+
+											<script type="text/javascript" >
+												var CellSize = 60;
+												var SubCellSize = 18;
+
+												var my_can_1 = document.getElementById("my_can_1");
+												var my_can_2 = document.getElementById("my_can_2");
+
+												var my_tb = document.getElementById("my_tb");
+												var extraInfo = document.getElementById("extraInfo");
+
+												var board1 = new Board();
+												var selectRow = 0;
+												var selectCol = 0;
+												var showAllowed = true;
+												var showSingles = true;
+												var undoStack = Array();
+
+												function undo() {
+													var tos = undoStack.pop();
+													if (tos) {
+														board1 = tos;
+														updateUI();
+													}
+												}
+
+												function clear_undo() {
+													undoStack= Array();
+												}
+
+												function insert_board() {
+													undoStack.push(board1.clone());
+												}
+
+												function get_status() {
+													extraInfo.innerHTML = "";
+													if (!board1._isValid)
+														message.innerHTML = "*Invalid*";
+													else if (board1._isSolved)
+														message.innerHTML = "*Solved*";
+													else
+														message.innerHTML = "";
+												}
+
+												function my_grid() {
+
+													var context = my_can_1.getContext('2d'); 
+													context.strokeStyle = '#808080';
+													for (var i = 0; i <= my_board; i++) {
+														context.beginPath();
+														var thick = i % 3 == 0;
+
+														context.lineWidth = thick ? 2 : 1;
+														context.moveTo(i * CellSize + 0.5, 0.5);
+														context.lineTo(i * CellSize + 0.5, my_board * CellSize + 0.5);
+
+
+														context.moveTo(0.5, i * CellSize + 0.5);
+														context.lineTo(my_board * CellSize + 0.5, i * CellSize + 0.5);
+														context.stroke();
+													}
+												}
+
+												function my_cells() {
+													var context = my_can_1.getContext('2d'); 
+
+													context.font = "12pt Calibri"; 
+													context.textAlign = "center";
+													context.textBaseline = "middle";
+													var normalColor = "#aaaaaa";
+													var singleColor = "#ff143c";
+
+
+													for (var row = 0; row < my_board; row++)
+														for (var col = 0; col < my_board; col++) {
+
+
+															if (row == selectRow && col == selectCol) {
+																var margin = 2;
+																context.beginPath();
+																context.rect(col * CellSize + margin + 0.5, row * CellSize + margin + 0.5, CellSize - 2 * margin, CellSize - 2 * margin);
+																context.fillStyle = "#ffe4e1";
+																context.fill()
+															}
+														}
+														context.fillStyle = "#999999"; 
+
+
+														if (showAllowed)
+															for (var row = 0; row < my_board; row++)
+																for (var col = 0; col < my_board; col++) {
+																	var cell = board1.getCell(new Location(row, col));
+																	if (!cell.isAssigned()) {
+																		var allowedValues = cell._allowed.allowedValuesArray();
+																		for (var i = 0; i < allowedValues.length; i++) {
+																			var val = allowedValues[i];
+																			var x = (col + 0.5) * CellSize; 
+																			var y = (row + 0.5) * CellSize;
+																			var subRow = Math.floor((val - 1) / 3) - 1;
+																			var subCol = Math.floor((val - 1) % 3) - 1;
+																			x += subCol * SubCellSize;
+																			y += subRow * SubCellSize;
+																			var hiddenSingle = allowedValues.length != 1 && val == cell.getAnswer(); 
+																			context.fillStyle = normalColor; 
+																			if (showSingles && val == cell.getAnswer())
+																				context.fillStyle = singleColor; 
+																			context.fillText(val, x, y);
+																		}
+																	}
+																}
+
+																var selectCell = board1.getCell(new Location(selectRow, selectCol));
+																var selectValue = selectCell.getValue();
+
+																context.font = "32pt Calibri";
+																context.textAlign = "center";
+																context.textBaseline = "middle";
+																var normalForeColor = "#191929";
+																var sameDigitForeColor = "#F91919";
+																context.fillStyle = normalForeColor; 
+																for (var row = 0; row < my_board; row++)
+																	for (var col = 0; col < my_board; col++) {
+																		var cell = board1.getCell(new Location(row, col));
+																		var x = (col + 0.5) * CellSize; 
+																		var y = (row + 0.5) * CellSize;
+																		var sameDigit = cell.getValue() == selectValue && selectValue != 0;
+
+																		var value = cell.getValue();
+																		if (value != 0) {
+																			context.fillStyle = cell.isGiven() ? "#2200aa" : "#696969"; 
+																			if (sameDigit)
+																				context.fillStyle = sameDigitForeColor; 
+																			context.fillText(value, x, y);
+																		}
+																	}
+																}
+
+																function my_canvas() {
+																	my_can_1.width = my_can_1.width;
+																	my_grid();
+																	my_cells();
+																}
+
+																function updateUI() {
+																	my_canvas();
+																	get_status();
+																	my_tb.value = board1.toString();
+																}
+
+
+
+																function selectCell(row, col) {
+																	selectRow = row;
+																	selectCol = col;
+																	my_canvas();
+																}
+
+																function move(row, col) {
+																	selectRow += row;
+																	selectCol += col;
+																	if (selectRow < 0)
+																		selectRow = 8;
+																	else if (selectRow > 8)
+																		selectRow = 0;
+																	if (selectCol < 0)
+																		selectCol = 8;
+																	else if (selectCol > 8)
+																		selectCol = 0;
+																	my_canvas();
+																}
+
+																function digit_in_cell(digit) {
+																	var cell = board1.getCell(new Location(selectRow, selectCol));
+																	message.innerHTML = "";
+																	if (cell.isGiven())
+																		return;
+																	if (digit != 0 && !cell.isAllowed(digit)) {
+																		message.innerHTML = "Digit not allowed";
+																		return;
+																	}
+																	insert_board();
+																	cell.setValue(digit);
+																	board1.updateAllowed();
+																	updateUI();
+																}
+
+																my_can_1.onmousedown = function my_mouse_down(ev) {
+																	var x = ev.pageX - this.offsetLeft;
+																	var y = ev.pageY - this.offsetTop;
+																	var coords = this.m_coordinate(ev);
+																	selectCell(Math.floor(coords.y / CellSize), Math.floor(coords.x / CellSize));
+																}
+
+																document.onkeydown = function (ev) {
+																	switch (ev.keyCode) {
+																		case 37: 
+																		move(0, -1);
+																		break;
+																		case 38: 
+																		move(-1, 0);
+																		break;
+																		case 39: 
+																		move(0, 1);
+																		break;
+																		case 40: 
+																		move(1, 0);
+																		break;
+																		default:
+																		var key = Number(ev.keyCode);
+																		var digit = key >= 96 ? key - 96 : key - 48;
+																		if (digit >= 0 && digit <= 9)
+																			digit_in_cell(digit);
+																		break;
+																	}
+																}
+
+																
+
+
+																function reset() {
+																	clear_undo();
+																	board1.reset();
+																	updateUI();
+																}
+
+																
+
+																board1.setString("7.8...3.....2.1...5..7..2...4.....263.948...7...1...9..9.6....4....7.5....5......");
+																updateUI();
+																var digCellSize = 54;
+
+
+																function init_my_source() {
+
+																	var context = my_can_2.getContext('2d');
+																	context.strokeStyle = '#808080';
+																	var SourceSize = my_board + 1;
+																	for (var i = 0; i <= SourceSize; i++) {
+																		context.beginPath();
+
+
+																		context.lineWidth = 1;
+																		context.moveTo(i * digCellSize + 0.5, 0.5);
+																		context.lineTo(i * digCellSize + 0.5, digCellSize + 0.5);
+																		context.stroke();
+																	}
+																	for (var i = 0; i <= 1; i++) {
+																		context.beginPath();
+
+																		context.lineWidth = 1;
+																		context.moveTo(0.5, i * digCellSize + 0.5);
+																		context.lineTo(SourceSize * digCellSize + 0.5, i * digCellSize + 0.5);
+																		context.stroke();
+																	}
+																	context.font = "24pt Calibri";
+																	context.textAlign = "center";
+																	context.textBaseline = "middle";
+																	var normalForeColor = "#708090";
+																	context.fillStyle = normalForeColor; 
+																	for (var col = 0; col < SourceSize; col++) {
+																		var x = (col + 0.5) * digCellSize; 
+																		var y = 0.5 * digCellSize;
+																		var value = col < 9 ? col + 1 : "Del";
+																		context.fillStyle = normalForeColor; 
+																		context.fillText(value, x, y);
+																	}
+
+																}
+																init_my_source();
+
+																my_can_2.onmousedown = function my_mouse_down(ev) {
+																	var x = ev.pageX - this.offsetLeft;
+																	var y = ev.pageY - this.offsetTop;
+																	var coords = this.m_coordinate(ev);
+																	var dig = Math.floor(coords.x / digCellSize) + 1;
+																	if (dig == 10)
+																		dig = 0;
+																	digit_in_cell(dig);
+																}
+
+
+															</script>
+														</div>
+
+													</div>
+
+												</body>
+												</html>

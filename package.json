@@ -1,0 +1,19 @@
+{
+  "name": "sudoku",
+  "version": "1.0.0",
+  "description": "Introduction:\r This Sudoku game was started as a personal project to bring us back on track with web development after spending months traveling and not using a computer all this time. We thought We forgot most, but it seems getting back to business took less time thanWe thought, and was also fun process. \r We wanted to build a Sudoku game in pure JS, after playing lots of Sudoku on our iPhone. At the beginning the game was simple, We managed to create a board with random numbers which followed the rules of the game: \r 1.\tNo number can repeat itself in the same 3x3 square\r 2.\tNo number can repeat itself on the same 9 cells column or row.\r 3.\tEvery empty cell should have a \"mirror\" empty cell (for example cells [0,7] & [8,1] OR [3,3] & [5,5]) ps. when Cells and 3x3 Cox index starts from '0' ,left to right, top to bottom.\r 4.\tEach game should have one and only solution to be considered a valid Sudoku game.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "eslint": "^3.19.0",
+    "http-server": "^0.9.0"
+  },
+  "dependencies": {
+    "lodash": "^4.17.4"
+  }
+}
